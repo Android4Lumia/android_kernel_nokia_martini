@@ -6961,12 +6961,7 @@ SYSCALL_DEFINE5(perf_event_open,
 	WARN_ON_ONCE(ctx->parent_ctx);
 
 	if (move_group) {
-		/*
-		 * Wait for everybody to stop referencing the events through
-		 * the old lists, before installing it on new lists.
-		 */
 		synchronize_rcu();
-
 		perf_install_in_context(ctx, group_leader, event->cpu);
 		get_ctx(ctx);
 		list_for_each_entry(sibling, &group_leader->sibling_list,
@@ -7092,20 +7087,18 @@ void perf_pmu_migrate_context(struct pmu *pmu, int src_cpu, int dst_cpu)
 	src_ctx = &per_cpu_ptr(pmu->pmu_cpu_context, src_cpu)->ctx;
 	dst_ctx = &per_cpu_ptr(pmu->pmu_cpu_context, dst_cpu)->ctx;
 
-	/*
-	 * See perf_event_ctx_lock() for comments on the details
-	 * of swizzling perf_event::ctx.
-	 */
-	mutex_lock_double(&src_ctx->mutex, &dst_ctx->mutex);
+	mutex_lock(&src_ctx->mutex);
 	list_for_each_entry_safe(event, tmp, &src_ctx->event_list,
 				 event_entry) {
-		__perf_remove_from_context(event);
+		perf_remove_from_context(event, true);
 		put_ctx(src_ctx);
 		list_add(&event->event_entry, &events);
 	}
+	mutex_unlock(&src_ctx->mutex);
 
 	synchronize_rcu();
 
+	mutex_lock(&dst_ctx->mutex);
 	list_for_each_entry_safe(event, tmp, &events, event_entry) {
 		list_del(&event->event_entry);
 		if (event->state >= PERF_EVENT_STATE_OFF)
@@ -7114,7 +7107,6 @@ void perf_pmu_migrate_context(struct pmu *pmu, int src_cpu, int dst_cpu)
 		get_ctx(dst_ctx);
 	}
 	mutex_unlock(&dst_ctx->mutex);
-	mutex_unlock(&src_ctx->mutex);
 }
 EXPORT_SYMBOL_GPL(perf_pmu_migrate_context);
 
