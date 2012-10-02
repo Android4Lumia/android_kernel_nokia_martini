@@ -45,9 +45,19 @@ oldsrcdir     := $(srctree)/$(subst /uapi,,$(obj))
 # all headers files for this dir
 header-y      := $(filter-out $(generic-y), $(header-y))
 all-files     := $(header-y) $(genhdr-y) $(wrapper-files)
-input-files   := $(addprefix $(srctree)/$(obj)/,$(header-y)) \
-                 $(addprefix $(objtree)/$(gen)/,$(genhdr-y))
-output-files  := $(addprefix $(install)/, $(all-files))
+output-files  := $(addprefix $(installdir)/, $(all-files))
+
+input-files   := $(foreach hdr, $(header-y), \
+		   $(or \
+			$(wildcard $(srcdir)/$(hdr)), \
+			$(wildcard $(oldsrcdir)/$(hdr)), \
+			$(error Missing UAPI file $(srcdir)/$(hdr)) \
+		   )) \
+		 $(foreach hdr, $(genhdr-y), \
+		   $(or \
+			$(wildcard $(gendir)/$(hdr)), \
+			$(error Missing generated UAPI file $(gendir)/$(hdr)) \
+		   ))
 
 # Work out what needs to be removed
 oldheaders    := $(patsubst $(installdir)/%,%,$(wildcard $(installdir)/*.h))
@@ -61,8 +71,7 @@ printdir = $(patsubst $(INSTALL_HDR_PATH)/%/,%,$(dir $@))
 quiet_cmd_install = INSTALL $(printdir) ($(words $(all-files))\
                             file$(if $(word 2, $(all-files)),s))
       cmd_install = \
-        $(PERL) $< $(srctree)/$(obj) $(install) $(SRCARCH) $(header-y); \
-        $(PERL) $< $(objtree)/$(gen) $(install) $(SRCARCH) $(genhdr-y); \
+        $(PERL) $< $(installdir) $(SRCARCH) $(input-files); \
         for F in $(wrapper-files); do                                   \
                 echo "\#include <asm-generic/$$F>" > $(installdir)/$$F;    \
         done;                                                           \
