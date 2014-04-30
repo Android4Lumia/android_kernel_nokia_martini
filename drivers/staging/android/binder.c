@@ -885,15 +885,8 @@ static struct binder_buffer *binder_alloc_buf(struct binder_proc *proc,
 	    (void *)PAGE_ALIGN((uintptr_t)buffer->data), end_page_addr, NULL))
 		return NULL;
 	if (buffer_size != size) {
-		struct binder_buffer *new_buffer;
+		struct binder_buffer *new_buffer = (void *)buffer->data + size;
 
-		new_buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
-		if (!new_buffer) {
-			pr_err("%s: %d failed to alloc new buffer struct\n",
-			       __func__, proc->pid);
-			goto err_alloc_buf_struct_failed;
-		}
-		new_buffer->data = (u8 *)buffer->data + size;
 		list_add(&new_buffer->entry, &buffer->entry);
 		new_buffer->free = 1;
 		binder_insert_free_buffer(proc, new_buffer);
@@ -1015,7 +1008,8 @@ static void binder_free_buf(struct binder_proc *proc,
 	rb_erase(&buffer->rb_node, &proc->allocated_buffers);
 	buffer->free = 1;
 	if (!list_is_last(&buffer->entry, &proc->buffers)) {
-		struct binder_buffer *next = binder_buffer_next(buffer);
+		struct binder_buffer *next = list_entry(buffer->entry.next,
+						struct binder_buffer, entry);
 
 		if (next->free) {
 			rb_erase(&next->rb_node, &proc->free_buffers);
@@ -1023,7 +1017,8 @@ static void binder_free_buf(struct binder_proc *proc,
 		}
 	}
 	if (proc->buffers.next != &buffer->entry) {
-		struct binder_buffer *prev = binder_buffer_prev(buffer);
+		struct binder_buffer *prev = list_entry(buffer->entry.prev,
+						struct binder_buffer, entry);
 
 		if (prev->free) {
 			binder_delete_free_buffer(proc, buffer);
