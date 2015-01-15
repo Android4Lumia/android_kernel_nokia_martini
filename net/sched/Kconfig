@@ -614,10 +614,20 @@ config NET_ACT_CONNMARK
         ---help---
 	  Say Y here to allow retrieving of conn mark
 
-	  If unsure, say N.
+          If unsure, say N.
 
-	  To compile this code as a module, choose M here: the
-	  module will be called act_connmark.
+          To compile this code as a module, choose M here: the
+          module will be called act_connmark.
+
+config NET_ACT_BPF
+        tristate "BPF based action"
+        depends on NET_CLS_ACT
+        ---help---
+	  Say Y here to execute BPF code on packets. The BPF code will decide
+	  if the packet should be dropped or not.
+
+          To compile this code as a module, choose M here: the
+	  module will be called act_bpf.
 
 config NET_CLS_IND
 	bool "Incoming device classification"
