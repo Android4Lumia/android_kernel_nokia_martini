@@ -28,6 +28,7 @@
 
 #include <linux/spinlock.h>
 #include <linux/preempt.h>
+#include <linux/compiler.h>
 #include <asm/processor.h>
 
 typedef struct {
@@ -237,6 +238,11 @@ static inline void write_seqcount_end(seqcount_t *s)
 {
 	smp_wmb();
 	s->sequence++;
+}
+
+static inline int raw_read_seqcount_latch(seqcount_t *s)
+{
+	return lockless_dereference(s->sequence);
 }
 
 /**
