@@ -590,8 +590,9 @@ static size_t binder_buffer_size(struct binder_proc *proc,
 				 struct binder_buffer *buffer)
 {
 	if (list_is_last(&buffer->entry, &proc->buffers))
-		return proc->buffer + proc->buffer_size - (void *)buffer->data;
-	return (size_t)binder_buffer_next(buffer) - (size_t)buffer->data;
+		return (u8 *)proc->buffer +
+			proc->buffer_size - (u8 *)buffer->data;
+	return (u8 *)binder_buffer_next(buffer)->data - (u8 *)buffer->data;
 }
 
 static void binder_insert_free_buffer(struct binder_proc *proc,
@@ -884,8 +885,15 @@ static struct binder_buffer *binder_alloc_buf(struct binder_proc *proc,
 	    (void *)PAGE_ALIGN((uintptr_t)buffer->data), end_page_addr, NULL))
 		return NULL;
 	if (buffer_size != size) {
-		struct binder_buffer *new_buffer = (void *)buffer->data + size;
+		struct binder_buffer *new_buffer;
 
+		new_buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
+		if (!new_buffer) {
+			pr_err("%s: %d failed to alloc new buffer struct\n",
+			       __func__, proc->pid);
+			goto err_alloc_buf_struct_failed;
+		}
+		new_buffer->data = (u8 *)buffer->data + size;
 		list_add(&new_buffer->entry, &buffer->entry);
 		new_buffer->free = 1;
 		binder_insert_free_buffer(proc, new_buffer);
@@ -938,32 +946,36 @@ static void binder_delete_free_buffer(struct binder_proc *proc,
 	if (prev_buffer_end_page(prev) == buffer_start_page(buffer)) {
 		to_free = false;
 		binder_debug(BINDER_DEBUG_BUFFER_ALLOC,
-			     "%d: merge free, buffer %pK share page with %pK\n",
-			      proc->pid, buffer->data, prev->data);
+			     "%d: merge free, buffer %pK "
+			     "share page with %pK\n",
+			     proc->pid, buffer->data, prev->data);
 	}
 
 	if (!list_is_last(&buffer->entry, &proc->buffers)) {
 		next = binder_buffer_next(buffer);
-		if (buffer_start_page(next) == buffer_end_page(buffer)) {
-			free_page_end = 0;
-			if (buffer_start_page(next) ==
-			    buffer_start_page(buffer))
-				free_page_start = 0;
+		if (buffer_start_page(next) == buffer_start_page(buffer)) {
+			to_free = false;
 			binder_debug(BINDER_DEBUG_BUFFER_ALLOC,
-				     "%d: merge free, buffer %pK share page with %pK\n",
-				      proc->pid, buffer->data, prev->data);
+				     "%d: merge free, buffer"
+				     " %pK share page with %pK\n",
+				     proc->pid,
+				     buffer->data,
+				     next->data);
 		}
 	}
+
 	if (PAGE_ALIGNED(buffer->data)) {
 		binder_debug(BINDER_DEBUG_BUFFER_ALLOC,
-			     "%d: merge free, buffer start %pK is page aligned\n",
+			     "%d: merge free, buffer start %pK "
+			     "is page aligned\n",
 			     proc->pid, buffer->data);
 		to_free = false;
 	}
 
 	if (to_free) {
 		binder_debug(BINDER_DEBUG_BUFFER_ALLOC,
-			     "%d: merge free, buffer %pK do not share page with %pK or %pK\n",
+			     "%d: merge free, buffer %pK do "
+			     "not share page with %pK or %pK\n",
 			     proc->pid, buffer->data,
 			     prev->data, next->data);
 		binder_update_page_range(proc, 0, buffer_start_page(buffer),
@@ -3515,9 +3527,7 @@ static int binder_mmap(struct file *filp, struct vm_area_struct *vma)
 		goto err_alloc_buf_struct_failed;
 	}
 
-	ret = __binder_update_page_range(proc, 1, proc->buffer,
-					 proc->buffer + BINDER_MIN_ALLOC, vma);
-	if (ret) {
+	if (binder_update_page_range(proc, 1, proc->buffer, proc->buffer + PAGE_SIZE, vma)) {
 		ret = -ENOMEM;
 		failure_string = "alloc small buf";
 		goto err_alloc_small_buf_failed;
@@ -3576,6 +3586,7 @@ static int binder_open(struct inode *nodp, struct file *filp)
 	binder_dev = container_of(filp->private_data, struct binder_device,
 				  miscdev);
 	proc->context = &binder_dev->context;
+	INIT_LIST_HEAD(&proc->buffers);
 
 	binder_lock(__func__);
 
@@ -3654,8 +3665,7 @@ static void binder_deferred_release(struct binder_proc *proc)
 	struct binder_context *context = proc->context;
 	struct rb_node *n;
 	struct binder_buffer *buffer;
-	int threads, nodes, incoming_refs, outgoing_refs, buffers,
-		active_transactions, page_count;
+	int threads, nodes, incoming_refs, outgoing_refs, buffers, active_transactions, page_count;
 
 	BUG_ON(proc->vma);
 
