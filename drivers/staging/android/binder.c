@@ -3527,7 +3527,9 @@ static int binder_mmap(struct file *filp, struct vm_area_struct *vma)
 		goto err_alloc_buf_struct_failed;
 	}
 
-	if (binder_update_page_range(proc, 1, proc->buffer, proc->buffer + PAGE_SIZE, vma)) {
+	ret = __binder_update_page_range(proc, 1, proc->buffer,
+					 proc->buffer + BINDER_MIN_ALLOC, vma);
+	if (ret) {
 		ret = -ENOMEM;
 		failure_string = "alloc small buf";
 		goto err_alloc_small_buf_failed;
