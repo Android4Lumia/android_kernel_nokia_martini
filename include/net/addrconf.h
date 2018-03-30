@@ -157,6 +157,13 @@ extern int ipv6_is_mld(struct sk_buff *skb, int nexthdr);
 extern void addrconf_prefix_rcv(struct net_device *dev,
 				u8 *opt, int len, bool sllao);
 
+/* A stub used by bpf helpers. Similarly ugly as ipv6_stub */
+struct ipv6_bpf_stub {
+	int (*inet6_bind)(struct sock *sk, struct sockaddr *uaddr, int addr_len,
+			  bool force_bind_address_no_port, bool with_lock);
+};
+extern const struct ipv6_bpf_stub *ipv6_bpf_stub __read_mostly;
+
 /*
  *	anycast prototypes (anycast.c)
  */
