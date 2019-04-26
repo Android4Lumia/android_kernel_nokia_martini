@@ -22,4 +22,5 @@ obj-$(CONFIG_NET_DROP_MONITOR) += drop_monitor.o
 obj-$(CONFIG_NETWORK_PHY_TIMESTAMPING) += timestamping.o
 obj-$(CONFIG_NETPRIO_CGROUP) += netprio_cgroup.o
 obj-$(CONFIG_SOCKEV_NLMCAST) += sockev_nlmcast.o
-obj-$(CONFIG_NET_PTP_CLASSIFY) += P.o
+obj-$(CONFIG_NET_PTP_CLASSIFY) += ptp_classifier.o
+obj-$(CONFIG_BPF_SYSCALL) += bpf_sk_storage.o
