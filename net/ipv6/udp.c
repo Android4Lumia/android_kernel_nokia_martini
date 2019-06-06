@@ -423,6 +423,10 @@ try_again:
 				sin6->sin6_scope_id = IP6CB(skb)->iif;
 		}
 		*addr_len = sizeof(*sin6);
+
+		if (cgroup_bpf_enabled)
+			BPF_CGROUP_RUN_PROG_UDP6_RECVMSG_LOCK(sk,
+						(struct sockaddr *)sin6);
 	}
 	if (is_udp4) {
 		if (inet->cmsg_flags)
