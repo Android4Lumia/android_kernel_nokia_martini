@@ -25,7 +25,7 @@
 	};
 
 	qcom,mdss_dsi@fd922800 {
-		qcom,dsi-pref-prim-pan = <&dsi_tosh_720_vid>;
+		//qcom,dsi-pref-prim-pan = <&dsi_tosh_720_vid>;
 	};
 
 	qcom,mdss_mdp@fd900000 {
@@ -732,14 +732,3 @@
 	};
 };
 
-&dsi_tosh_720_vid {
-       qcom,cont-splash-enabled;
-};
-
-&dsi_generic_720p_cmd {
-       qcom,cont-splash-enabled;
-};
-
-&dsi_jdi_1080_vid {
-       qcom,cont-splash-enabled;
-};
