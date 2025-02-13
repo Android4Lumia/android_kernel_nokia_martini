@@ -1,0 +1,34 @@
+name: Kernel CI
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - name: Checkout Kernel Source
+      uses: actions/checkout@v4.1.5
+
+    - name: Getting Toolchain
+      run: |
+        sudo apt-get install lib32z1 ccache autoconf
+        sudo git clone --depth 1 --branch android-6.0.1_r11 --single-branch https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-eabi-4.8 /opt/toolchains/arm-eabi-4.8/
+    - name: Building Kernel
+      run: |
+        export ARCH=arm
+        export CROSS_COMPILE=/opt/toolchains/arm-eabi-4.8/bin/arm-eabi-
+        export KBUILD_BUILD_USER=caf-kernel
+        export KBUILD_BUILD_HOST=android4lumia
+        make -j2 msm8974_defconfig
+        make -j12
+    - name: Moving Output
+      run: |
+        mkdir -p /home/runner/work/output
+        cp arch/arm/boot/zImage /home/runner/work/output/zImage
+    - name: Uploading Output
+      uses: actions/upload-artifact@v4
+      with:
+        name: zImage
+        path: /home/runner/work/output/zImage
