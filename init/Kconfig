@@ -929,6 +929,10 @@ config ANDROID_TREBLE_SPOOF_BPF_KERNEL_VERSION_PREFIX
 		depends on ANDROID_TREBLE_SPOOF_KERNEL_VERSION
 		default "4.9.337"
 
+config ANDROID_TREBLE_SPOOF_BPF_KERNEL_BITNESS
+		bool "Report aarch64 kernel to bpfloader"
+		default n
+
 config MM_OWNER
 	bool
 
