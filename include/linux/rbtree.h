@@ -96,6 +96,7 @@ static inline struct page * rb_insert_page_cache(struct inode * inode,
 
 #include <linux/kernel.h>
 #include <linux/stddef.h>
+#include <linux/rcupdate.h>
 
 struct rb_node
 {
@@ -172,6 +173,15 @@ static inline void rb_link_node(struct rb_node * node, struct rb_node * parent,
 	node->rb_left = node->rb_right = NULL;
 
 	*rb_link = node;
+}
+
+static inline void rb_link_node_rcu(struct rb_node *node, struct rb_node *parent,
+				    struct rb_node **rb_link)
+{
+	node->rb_parent_color = (unsigned long)parent;
+	node->rb_left = node->rb_right = NULL;
+
+	rcu_assign_pointer(*rb_link, node);
 }
 
 #endif	/* _LINUX_RBTREE_H */
