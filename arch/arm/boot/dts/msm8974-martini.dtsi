@@ -10,15 +10,27 @@
  * GNU General Public License for more details.
  */
 
-/include/ "msm8974-camera-sensor-mtp.dtsi"
-/include/ "msm8974-leds.dtsi"
+// /include/ "msm8974-camera-sensor-mtp.dtsi"
+// /include/ "msm8974-leds.dtsi"
+/include/ "dsi-panel-martini-amoled-dsi0-video.dtsi"
 /include/ "msm8974-martini-regulator.dtsi"
-/include/ "dsi-panel-aurora-1080p-video.dtsi"
+/include/ "msm8974-martini-panel.dtsi"
+/include/ "msm8974-martini-touch.dtsi"
 
 / {
 	aliases {
 		serial0 = &blsp1_uart1;
 	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+};
+
+&gdsc_mdss {
+	qcom,clock-names = "core_clk", "lut_clk";
+	status = "ok";
+	regulator-always-on;
 };
 
 &soc {
@@ -26,58 +38,9 @@
 		status = "ok";
 	};
 
-	qcom,mdss_dsi@fd922800 {
-		qcom,dsi-pref-prim-pan = <&dsi_aurora_1080p_video>;
-	};
-
 	qcom,mdss_mdp@fd900000 {
-		qcom,mdss-pref-prim-intf = "dsi";
-		batfet-supply = <&pm8941_chg_batif>;
-	};
-
-	qcom,hdmi_tx@fd922100 {
-		status = "disabled";
-	};
-
-	i2c@f9924000 {
-		synaptics@20 {
-			compatible = "synaptics,rmi4";
-			reg = <0x20>;
-			interrupt-parent = <&msmgpio>;
-			interrupts = <61 0x2008>;
-			vdd-supply = <&pm8941_l18>;
-			vcc_i2c-supply = <&pm8941_lvs1>;
-			synaptics,reset-gpio = <&msmgpio 60 0x00>;
-			synaptics,irq-gpio = <&msmgpio 61 0x2008>;
-			synaptics,display-coords = <0 0 1079 1919>;
-			synaptics,i2c-pull-up;
-			synaptics,power-down;
-			synaptics,disable-gpios;
-			synaptics,do-lockdown;
-		};
-
-	};
-
-	i2c@f9967000 {
-		isa1200@48 {
-			status = "okay";
-			reg = <0x48>;
-			vcc_i2c-supply = <&pm8941_s3>;
-			compatible = "imagis,isa1200";
-			label = "vibrator";
-			imagis,chip-en;
-			imagis,need-pwm-clk;
-			imagis,ext-clk-en;
-			imagis,hap-en-gpio = <&msmgpio 86 0x00>;
-			imagis,max-timeout = <15000>;
-			imagis,pwm-div = <256>;
-			imagis,mode-ctrl = <2>;
-			imagis,regulator {
-				regulator-name = "vcc_i2c";
-				regulator-min-microvolt = <1800000>;
-				regulator-max-microvolt = <1800000>;
-				regulator-max-microamp = <9360>;
-			};
+		qcom,mdss_fb_primary {
+			qcom,memory-reservation-size = <0x00800000>;
 		};
 	};
 
@@ -113,83 +76,91 @@
 		};
 	};
 
-	spi@f9923000 {
-		ethernet-switch@2 {
-			compatible = "micrel,ks8851";
-			reg = <2>;
-			interrupt-parent = <&msmgpio>;
-			interrupts = <94 0>;
-			spi-max-frequency = <4800000>;
-			rst-gpio = <&pm8941_mpps 6 0>;
-			vdd-io-supply = <&spi_eth_vreg>;
-			vdd-phy-supply = <&spi_eth_vreg>;
-		};
-	};
+	// spi@f9923000 {
+	// 	ethernet-switch@2 {
+	// 		compatible = "micrel,ks8851";
+	// 		reg = <2>;
+	// 		interrupt-parent = <&msmgpio>;
+	// 		interrupts = <94 0>;
+	// 		spi-max-frequency = <4800000>;
+	// 		rst-gpio = <&pm8941_mpps 6 0>;
+	// 		vdd-io-supply = <&spi_eth_vreg>;
+	// 		vdd-phy-supply = <&spi_eth_vreg>;
+	// 	};
+	// };
 
-	sound {
-		qcom,model = "msm8974-taiko-mtp-snd-card";
-		qcom,cdc-micbias2-headset-only;
-		qcom,mbhc-audio-jack-type = "6-pole-jack";
-	};
+	// sound {
+	// 	qcom,model = "msm8974-taiko-mtp-snd-card";
+	// 	qcom,cdc-micbias2-headset-only;
+	// 	qcom,mbhc-audio-jack-type = "6-pole-jack";
+	// };
 };
 
-&pm8941_lsid1 {
-	qcom,leds@d800 {
-		status = "okay";
-		qcom,wled_0 {
-			label = "wled";
-			linux,name = "wled:backlight";
-			linux,default-trigger = "bkl-trigger";
-			qcom,cs-out-en;
-			qcom,op-fdbck = <1>;
-			qcom,default-state = "on";
-			qcom,max-current = <25>;
-			qcom,ctrl-delay-us = <0>;
-			qcom,boost-curr-lim = <5>;
-			qcom,cp-sel = <0>;
-			qcom,switch-freq = <11>;
-			qcom,ovp-val = <2>;
-			qcom,num-strings = <3>;
-			qcom,id = <0>;
-		};
-	};
+// &pm8941_lsid1 {
+// 	qcom,leds@d800 {
+// 		status = "okay";
+// 		qcom,vib-timeout-ms = <12000>;
+// 	};
+// };
 
-	qcom,leds@d900 {
-		status = "disabled";
-	};
 
-	qcom,leds@da00 {
-		status = "disabled";
-	};
+// &pm8941_lsid1 {
+// 	qcom,leds@d800 {
+// 		status = "okay";
+// 		qcom,wled_0 {
+// 			label = "wled";
+// 			linux,name = "wled:backlight";
+// 			linux,default-trigger = "bkl-trigger";
+// 			qcom,cs-out-en;
+// 			qcom,op-fdbck = <1>;
+// 			qcom,default-state = "on";
+// 			qcom,max-current = <25>;
+// 			qcom,ctrl-delay-us = <0>;
+// 			qcom,boost-curr-lim = <5>;
+// 			qcom,cp-sel = <0>;
+// 			qcom,switch-freq = <11>;
+// 			qcom,ovp-val = <2>;
+// 			qcom,num-strings = <3>;
+// 			qcom,id = <0>;
+// 		};
+// 	};
 
-	qcom,leds@db00 {
-		status = "disabled";
-	};
+// 	qcom,leds@d900 {
+// 		status = "disabled";
+// 	};
 
-	qcom,leds@dc00 {
-		status = "disabled";
-	};
+// 	qcom,leds@da00 {
+// 		status = "disabled";
+// 	};
 
-	qcom,leds@dd00 {
-		status = "disabled";
-	};
+// 	qcom,leds@db00 {
+// 		status = "disabled";
+// 	};
 
-	qcom,leds@de00 {
-		status = "disabled";
-	};
+// 	qcom,leds@dc00 {
+// 		status = "disabled";
+// 	};
 
-	qcom,leds@df00 {
-		status = "disabled";
-	};
+// 	qcom,leds@dd00 {
+// 		status = "disabled";
+// 	};
 
-	qcom,leds@e000 {
-		status = "disabled";
-	};
+// 	qcom,leds@de00 {
+// 		status = "disabled";
+// 	};
 
-	qcom,leds@e100 {
-		status = "disabled";
-	};
-};
+// 	qcom,leds@df00 {
+// 		status = "disabled";
+// 	};
+
+// 	qcom,leds@e000 {
+// 		status = "disabled";
+// 	};
+
+// 	qcom,leds@e100 {
+// 		status = "disabled";
+// 	};
+// };
 
 &sdcc1 {
        status = "disabled";
