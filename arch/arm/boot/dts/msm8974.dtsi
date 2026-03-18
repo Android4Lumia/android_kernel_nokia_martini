@@ -2621,6 +2621,7 @@
 &gdsc_mdss {
 	qcom,clock-names = "core_clk", "lut_clk";
 	status = "ok";
+	regulator-always-on;
 };
 
 &gdsc_jpeg {
