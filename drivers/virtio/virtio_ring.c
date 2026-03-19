@@ -132,6 +132,13 @@ static int vring_add_indirect(struct vring_virtqueue *vq,
 	unsigned head;
 	int i;
 
+	/*
+	 * We require lowmem mappings for the descriptors because
+	 * otherwise virt_to_phys will give us bogus addresses in the
+	 * virtqueue.
+	 */
+	gfp &= ~(__GFP_HIGHMEM | __GFP_HIGH);
+
 	desc = kmalloc((out + in) * sizeof(struct vring_desc), gfp);
 	if (!desc)
 		return -ENOMEM;
@@ -482,19 +489,21 @@ static void vring_disable_cb(struct virtqueue *_vq)
 }
 
 /**
- * vring_enable_cb - restart callbacks after disable_cb.
+ * virtqueue_enable_cb_prepare - restart callbacks after disable_cb.
  * @vq: the struct virtqueue we're talking about.
  *
- * This re-enables callbacks; it returns "false" if there are pending
- * buffers in the queue, to detect a possible race between the driver
- * checking for more work, and enabling callbacks.
+ * This re-enables callbacks; it returns current queue state
+ * in an opaque unsigned value. This value should be later tested by
+ * virtqueue_poll, to detect a possible race between the driver checking for
+ * more work, and enabling callbacks.
  *
  * Caller must ensure we don't call this with other virtqueue
  * operations at the same time (except where noted).
  */
-static bool vring_enable_cb(struct virtqueue *_vq)
+unsigned virtqueue_enable_cb_prepare(struct virtqueue *_vq)
 {
 	struct vring_virtqueue *vq = to_vvq(_vq);
+	u16 last_used_idx;
 
 	START_USE(vq);
 
@@ -504,19 +513,49 @@ static bool vring_enable_cb(struct virtqueue *_vq)
 	 * either clear the flags bit or point the event index at the next
 	 * entry. Always do both to keep code simple. */
 	vq->vring.avail->flags &= ~VRING_AVAIL_F_NO_INTERRUPT;
-	vring_used_event(&vq->vring) = vq->last_used_idx;
-	virtio_mb(vq);
-	if (unlikely(more_used(vq))) {
-		END_USE(vq);
-		return false;
-	}
-
+	vring_used_event(&vq->vring) = last_used_idx = vq->last_used_idx;
 	END_USE(vq);
-	return true;
+	return last_used_idx;
+}
+EXPORT_SYMBOL_GPL(virtqueue_enable_cb_prepare);
+
+/**
+ * virtqueue_poll - query pending used buffers
+ * @vq: the struct virtqueue we're talking about.
+ * @last_used_idx: virtqueue state (from call to virtqueue_enable_cb_prepare).
+ *
+ * Returns "true" if there are pending used buffers in the queue.
+ *
+ * This does not need to be serialized.
+ */
+bool virtqueue_poll(struct virtqueue *_vq, unsigned last_used_idx)
+{
+	struct vring_virtqueue *vq = to_vvq(_vq);
+
+	virtio_mb(vq);
+	return (u16)last_used_idx != vq->vring.used->idx;
+}
+EXPORT_SYMBOL_GPL(virtqueue_poll);
+
+/**
+ * virtqueue_enable_cb - restart callbacks after disable_cb.
+ * @vq: the struct virtqueue we're talking about.
+ *
+ * This re-enables callbacks; it returns "false" if there are pending
+ * buffers in the queue, to detect a possible race between the driver
+ * checking for more work, and enabling callbacks.
+ *
+ * Caller must ensure we don't call this with other virtqueue
+ * operations at the same time (except where noted).
+ */
+bool virtqueue_enable_cb(struct virtqueue *_vq)
+{
+	unsigned last_used_idx = virtqueue_enable_cb_prepare(_vq);
+	return !virtqueue_poll(_vq, last_used_idx);
 }
 
 /**
- * vring_enable_cb_delayed - restart callbacks after disable_cb.
+ * virtqueue_enable_cb_prepare_delayed - restart callbacks after disable_cb.
  * @vq: the struct virtqueue we're talking about.
  *
  * This re-enables callbacks but hints to the other side to delay
@@ -528,7 +567,7 @@ static bool vring_enable_cb(struct virtqueue *_vq)
  * Caller must ensure we don't call this with other virtqueue
  * operations at the same time (except where noted).
  */
-static bool vring_enable_cb_delayed(struct virtqueue *_vq)
+static bool virtqueue_enable_cb_prepare_delayed(struct virtqueue *_vq)
 {
 	struct vring_virtqueue *vq = to_vvq(_vq);
 	u16 bufs;
@@ -629,8 +668,8 @@ static struct virtqueue_ops vring_vq_ops = {
 	.kick_prepare = vring_kick_prepare,
 	.kick_notify = vring_kick_notify,
 	.disable_cb = vring_disable_cb,
-	.enable_cb = vring_enable_cb,
-	.enable_cb_delayed = vring_enable_cb_delayed,
+	.enable_cb = virtqueue_enable_cb_prepare,
+	.enable_cb_delayed = virtqueue_enable_cb_prepare_delayed,
 	.detach_unused_buf = vring_detach_unused_buf,
 	.get_impl_size = get_vring_size,
 };

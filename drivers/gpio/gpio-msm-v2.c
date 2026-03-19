@@ -198,16 +198,30 @@ void __gpio_tlmm_config(unsigned config)
 	uint32_t flags;
 	unsigned gpio = GPIO_PIN(config);
 
-	flags = ((GPIO_DIR(config) << 9) & (0x1 << 9)) |
-		((GPIO_DRVSTR(config) << 6) & (0x7 << 6)) |
-		((GPIO_FUNC(config) << 2) & (0xf << 2)) |
-		((GPIO_PULL(config) & 0x3));
-	__raw_writel(flags, GPIO_CONFIG(gpio));
+	spin_lock_irqsave(&tlmm_lock, irq_flags);
+	writel(TARGET_PROC_NONE, GPIO_INTR_CFG_SU(gpio));
+	clear_gpio_bits(BIT(INTR_RAW_STATUS_EN) | BIT(INTR_ENABLE), GPIO_INTR_CFG(gpio));
+	__clear_bit(gpio, msm_gpio.enabled_irqs);
+	spin_unlock_irqrestore(&tlmm_lock, irq_flags);
 }
 
 void __msm_gpio_install_direct_irq(unsigned gpio, unsigned irq,
 					unsigned int input_polarity)
 {
+	int gpio = msm_irq_to_gpio(&msm_gpio.gpio_chip, d->irq);
+	unsigned long irq_flags;
+
+	spin_lock_irqsave(&tlmm_lock, irq_flags);
+	__set_bit(gpio, msm_gpio.enabled_irqs);
+	set_gpio_bits(BIT(INTR_RAW_STATUS_EN) | BIT(INTR_ENABLE), GPIO_INTR_CFG(gpio));
+	writel(TARGET_PROC_SCORPION, GPIO_INTR_CFG_SU(gpio));
+	spin_unlock_irqrestore(&tlmm_lock, irq_flags);
+}
+
+static int msm_gpio_irq_set_type(struct irq_data *d, unsigned int flow_type)
+{
+	int gpio = msm_irq_to_gpio(&msm_gpio.gpio_chip, d->irq);
+	unsigned long irq_flags;
 	uint32_t bits;
 
 	__raw_writel(__raw_readl(GPIO_CONFIG(gpio)) | BIT(GPIO_OE_BIT),

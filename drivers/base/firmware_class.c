@@ -745,7 +745,22 @@ int request_firmware_direct(const char *name, struct device *device,
 	const struct firmware *fp = NULL;
 	int ret;
 
-	ret = __request_firmware(&fp, name, device, dest_addr, dest_size);
+	if (!name || name[0] == '\0')
+		return -EINVAL;
+
+	fw_priv = _request_firmware_prepare(&fp, name, device, true,
+					    false);
+	if (IS_ERR_OR_NULL(fw_priv))
+		return PTR_RET(fw_priv);
+
+	ret = usermodehelper_read_trylock();
+	if (WARN_ON(ret)) {
+		dev_err(device, "firmware: %s will not be loaded\n", name);
+	} else {
+		ret = _request_firmware_load(fw_priv, true,
+					firmware_loading_timeout());
+		usermodehelper_read_unlock();
+	}
 	if (ret)
 		return ret;
 	ret = fp->size;

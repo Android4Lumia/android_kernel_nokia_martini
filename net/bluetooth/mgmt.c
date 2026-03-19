@@ -2831,9 +2831,39 @@ int mgmt_powered(u16 index, u8 powered)
 
 	mgmt_pending_foreach(MGMT_OP_SET_POWERED, index, mode_rsp, &match);
 
-	if (!powered) {
-		u8 status = ENETDOWN;
-		mgmt_pending_foreach(0, index, cmd_status_rsp, &status);
+	if (powered) {
+		u8 scan = 0;
+
+		if (test_bit(HCI_CONNECTABLE, &hdev->dev_flags))
+			scan |= SCAN_PAGE;
+		if (test_bit(HCI_DISCOVERABLE, &hdev->dev_flags))
+			scan |= SCAN_INQUIRY;
+
+		if (scan)
+			hci_send_cmd(hdev, HCI_OP_WRITE_SCAN_ENABLE, 1, &scan);
+
+		if (test_bit(HCI_SSP_ENABLED, &hdev->dev_flags)) {
+			u8 ssp = 1;
+
+			hci_send_cmd(hdev, HCI_OP_WRITE_SSP_MODE, 1, &ssp);
+		}
+
+		if (test_bit(HCI_LE_ENABLED, &hdev->dev_flags)) {
+			struct hci_cp_write_le_host_supported cp;
+
+			cp.le = 1;
+			cp.simul = !!(hdev->features[6] & LMP_SIMUL_LE_BR);
+
+			hci_send_cmd(hdev, HCI_OP_WRITE_LE_HOST_SUPPORTED,
+				     sizeof(cp), &cp);
+		}
+
+		update_class(hdev);
+		update_name(hdev, hdev->dev_name);
+		update_eir(hdev);
+	} else {
+		u8 status = MGMT_STATUS_NOT_POWERED;
+		mgmt_pending_foreach(0, hdev, cmd_status_rsp, &status);
 	}
 
 	ev.val = powered;
@@ -2846,7 +2876,28 @@ int mgmt_powered(u16 index, u8 powered)
 	return ret;
 }
 
-int mgmt_discoverable(u16 index, u8 discoverable)
+int mgmt_set_powered_failed(struct hci_dev *hdev, int err)
+{
+	struct pending_cmd *cmd;
+	u8 status;
+
+	cmd = mgmt_pending_find(MGMT_OP_SET_POWERED, hdev);
+	if (!cmd)
+		return -ENOENT;
+
+	if (err == -ERFKILL)
+		status = MGMT_STATUS_RFKILLED;
+	else
+		status = MGMT_STATUS_FAILED;
+
+	err = cmd_status(cmd->sk, hdev->id, MGMT_OP_SET_POWERED, status);
+
+	mgmt_pending_remove(cmd);
+
+	return err;
+}
+
+int mgmt_discoverable(struct hci_dev *hdev, u8 discoverable)
 {
 	struct mgmt_mode ev;
 	struct cmd_lookup match = { discoverable, NULL };
