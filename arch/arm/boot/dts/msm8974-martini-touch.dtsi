@@ -1,0 +1,30 @@
+/* Copyright (c) 2015, LGE Inc. All rights reserved.
+ * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&i2c_2 {
+	status = "okay";
+	
+	synaptics@4b {
+		compatible = "synaptics,rmi4";
+		reg = <0x4b>;
+
+		synaptics,reset-gpio = <&msmgpio 60 0x00>;
+		synaptics,irq-gpio = <&msmgpio 61 0x2008>;
+		interrupt-parent = <&msmgpio>;
+		interrupts = <61 0x2008>;
+		reset-gpios = <&msmgpio 60 0x00>;
+		vdd-supply = <&pm8941_l22>;
+		vcc_i2c-supply = <&pm8941_l22>;
+		synaptics,display-coords = <0 0 1079 1919>;
+	};
+};
