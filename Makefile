@@ -16,6 +16,9 @@ NAME = Saber-toothed Squirrel
 # o  print "Entering directory ...";
 MAKEFLAGS += -rR --no-print-directory
 
+export CONFIG_NO_ERROR_ON_MISMATCH := y
+export CONFIG_SECTION_MISMATCH_WARN_ONLY := y
+
 # Avoid funny character set dependencies
 unexport LC_ALL
 LC_COLLATE=C
