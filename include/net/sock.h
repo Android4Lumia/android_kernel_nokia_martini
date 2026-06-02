@@ -66,6 +66,7 @@
 
 #include <linux/atomic.h>
 #include <net/dst.h>
+#include <net/tcp_states.h>
 #include <net/checksum.h>
 
 struct cgroup;
@@ -337,6 +338,8 @@ struct sock {
 	kmemcheck_bitfield_end(flags);
 	int			sk_wmem_queued;
 	gfp_t			sk_allocation;
+	u32			sk_pacing_rate; /* bytes per second */
+	u32			sk_max_pacing_rate;
 	netdev_features_t	sk_route_caps;
 	netdev_features_t	sk_route_nocaps;
 	int			sk_gso_type;
@@ -373,6 +376,7 @@ struct sock {
 	void			*sk_security;
 #endif
 	__u32			sk_mark;
+	kuid_t			sk_uid;
 	u32			sk_classid;
 	struct cgroup           *skcg;
 	struct cg_proto		*sk_cgrp;
@@ -1572,6 +1576,12 @@ static inline void sock_graft(struct sock *sk, struct socket *parent)
 
 int sock_i_uid(struct sock *sk);
 unsigned long sock_i_ino(struct sock *sk);
+
+static inline kuid_t sock_net_uid(const struct net *net, const struct sock *sk)
+{
+	return sk ? sk->sk_uid : make_kuid(net->user_ns, 0);
+}
+
 
 static inline struct dst_entry *
 __sk_dst_get(struct sock *sk)
