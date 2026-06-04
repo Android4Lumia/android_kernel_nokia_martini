@@ -368,7 +368,7 @@
 	gpio@c700 { /* GPIO 8 */
 		qcom,mode = <0>;        /* QPNP_PIN_MODE_DIG_IN */
 		qcom,pull = <0>;        /* QPNP_PIN_PULL_UP_30  */
-		qcom,master-en = <1>;
+		qcom,master-en = <0>;
 	};
 
 	gpio@c800 { /* GPIO 9 */
