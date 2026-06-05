@@ -464,8 +464,9 @@ struct binder_ref {
 };
 
 enum binder_deferred_state {
-	BINDER_DEFERRED_FLUSH        = 0x01,
-	BINDER_DEFERRED_RELEASE      = 0x02,
+	BINDER_DEFERRED_PUT_FILES    = 0x01,
+	BINDER_DEFERRED_FLUSH        = 0x02,
+	BINDER_DEFERRED_RELEASE      = 0x04,
 };
 
 /**
@@ -1418,9 +1419,8 @@ static int binder_inc_node_nilocked(struct binder_node *node, int strong,
 			    !(node->proc &&
 			      node == node->proc->context->binder_context_mgr_node &&
 			      node->has_strong_ref)) {
-				binder_debug(BINDER_DEBUG_TOP_ERRORS,
-					     "invalid inc strong node for %d\n",
-					     node->debug_id);
+				pr_err("invalid inc strong node for %d\n",
+					node->debug_id);
 				return -EINVAL;
 			}
 			node->internal_strong_refs++;
@@ -1439,9 +1439,8 @@ static int binder_inc_node_nilocked(struct binder_node *node, int strong,
 			node->local_weak_refs++;
 		if (!node->has_weak_ref && list_empty(&node->work.entry)) {
 			if (target_list == NULL) {
-				binder_debug(BINDER_DEBUG_TOP_ERRORS,
-					     "invalid inc weak node for %d\n",
-					     node->debug_id);
+				pr_err("invalid inc weak node for %d\n",
+					node->debug_id);
 				return -EINVAL;
 			}
 			/*
@@ -2434,9 +2433,8 @@ static void binder_transaction_buffer_release(struct binder_proc *proc,
 			fp = to_flat_binder_object(hdr);
 			node = binder_get_node(proc, fp->binder);
 			if (node == NULL) {
-				binder_debug(BINDER_DEBUG_TOP_ERRORS,
-					     "transaction release %d bad node %016llx\n",
-					     debug_id, (u64)fp->binder);
+				pr_err("transaction release %d bad node %016llx\n",
+				       debug_id, (u64)fp->binder);
 				break;
 			}
 			binder_debug(BINDER_DEBUG_TRANSACTION,
@@ -2540,9 +2538,8 @@ static void binder_transaction_buffer_release(struct binder_proc *proc,
 			}
 		} break;
 		default:
-			binder_debug(BINDER_DEBUG_TOP_ERRORS,
-				     "transaction release %d bad object type %x\n",
-				     debug_id, hdr->type);
+			pr_err("transaction release %d bad object type %x\n",
+				debug_id, hdr->type);
 			break;
 		}
 	}
@@ -3835,12 +3832,10 @@ static int binder_thread_write(struct binder_proc *proc,
 			break;
 		}
 		case BC_ATTEMPT_ACQUIRE:
-			binder_debug(BINDER_DEBUG_TOP_ERRORS,
-				     "BC_ATTEMPT_ACQUIRE not supported\n");
+			pr_err("BC_ATTEMPT_ACQUIRE not supported\n");
 			return -EINVAL;
 		case BC_ACQUIRE_RESULT:
-		        binder_debug(BINDER_DEBUG_TOP_ERRORS,
-				     "BC_ACQUIRE_RESULT not supported\n");
+			pr_err("BC_ACQUIRE_RESULT not supported\n");
 			return -EINVAL;
 
 		case BC_FREE_BUFFER: {
@@ -4140,9 +4135,8 @@ static int binder_thread_write(struct binder_proc *proc,
 		} break;
 
 		default:
-			binder_debug(BINDER_DEBUG_TOP_ERRORS,
-				     "%d:%d unknown command %d\n",
-				     proc->pid, thread->pid, cmd);
+			pr_err("%d:%d unknown command %d\n",
+			       proc->pid, thread->pid, cmd);
 			return -EINVAL;
 		}
 		*consumed = ptr - buffer;
@@ -5144,9 +5138,7 @@ err:
 		thread->looper_need_return = false;
 	wait_event_interruptible(binder_user_error_wait, binder_stop_on_user_error < 2);
 	if (ret && ret != -ERESTARTSYS)
-		binder_debug(BINDER_DEBUG_TOP_ERRORS,
-			     "%d:%d ioctl %x %lx returned %d\n",
-			     proc->pid, current->pid, cmd, arg, ret);
+		pr_info("%d:%d ioctl %x %lx returned %d\n", proc->pid, current->pid, cmd, arg, ret);
 err_unlocked:
 	trace_binder_ioctl_done(ret);
 	return ret;
@@ -5486,6 +5478,7 @@ static void binder_deferred_release(struct binder_proc *proc)
 static void binder_deferred_func(struct work_struct *work)
 {
 	struct binder_proc *proc;
+	struct files_struct *files;
 
 	int defer;
 
